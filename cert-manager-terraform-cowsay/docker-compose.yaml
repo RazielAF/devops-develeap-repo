@@ -1,0 +1,27 @@
+version: "3.7"
+services:
+  cowsay:
+    image: 644435390668.dkr.ecr.eu-west-2.amazonaws.com/maciejbekascowsay:latest
+    container_name: "cowsay"
+    networks:
+     - mynet
+  nginx:
+    build:
+      context: .
+      dockerfile: ./conf/Dockerfile
+    container_name: nginx
+    restart: always
+    ports:
+      - 80:80
+      - 443:443
+    networks:
+     - mynet
+    volumes:
+     - certbot:/etc/letsencrypt:rw
+    depends_on:
+     - cowsay
+volumes:
+  certbot:
+networks:
+  mynet:
+    name: mynet

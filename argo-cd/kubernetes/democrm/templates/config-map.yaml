@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongo-config
+data:
+# property-like keys; each key maps to a simple value
+  databasePort: "27017"
+  databaseHost: "{{ .Release.Name }}-mongodb-headless"
+  MONGODB_URI: "mongodb://$DBUSER:$DBPASS@democrm-mongodb-headless:27017"
+  LOG_LEVEL: "info"
+  PERSISTENCE: "true"
+#file-like keys
+  # application.properties: |
+  #   server.port = 80
+  #   spring.application.name = democrm

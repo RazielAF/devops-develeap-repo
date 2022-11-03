@@ -1,0 +1,23 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: deletedbcontent
+spec:
+  schedule: "0 0 * * *"
+  # timeZone: "UTC+2"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: deleteclients
+            image: mongo
+            imagePullPolicy: IfNotPresent
+            command:
+            - /bin/sh
+            - -c  
+            - mongosh --host {{ .Release.Name }}-mongodb-headless --username user -p pass --eval "db.clients.drop()"
+          restartPolicy: OnFailure
