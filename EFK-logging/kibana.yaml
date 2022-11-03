@@ -1,0 +1,14 @@
+service:
+  type: LoadBalancer
+  port: 5601
+  # nodePort: 31000
+
+resources:
+  requests:
+    cpu: "256m"
+    memory: "2Gi"
+  limits:
+    cpu: "512m"
+    memory: "2Gi"
+persistence:
+  enabled: false

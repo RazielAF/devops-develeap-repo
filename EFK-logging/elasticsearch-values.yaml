@@ -1,0 +1,14 @@
+antiAffinity: "soft"
+esJavaOpts: "-Xmx128m -Xms128m" 
+resources:
+  requests:
+    cpu: "256m"
+    memory: "2Gi"
+  limits:
+    cpu: "512m"
+    memory: "2Gi"
+persistence:
+  enabled: false
+
+replicas: 1
+minimumMasterNodes: 1

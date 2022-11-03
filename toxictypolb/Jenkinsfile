@@ -1,0 +1,184 @@
+pipeline{
+    agent any
+    tools { 
+        maven 'Maven3.6.2' 
+        jdk 'jdk8' 
+    }
+    environment {
+        fail_job="Checkout"
+    }
+
+    stages {
+        stage('checkout') {
+            steps {
+                deleteDir() 
+                checkout scm
+            }
+        }
+        stage('build & test'){
+            when {
+                anyOf {
+                    branch "master"
+                    branch "feature/*"
+                }
+            }
+            parallel{
+                stage('mvn verify'){
+                    steps {
+                        script{
+                            fail_job="mvn verify"
+                            configFileProvider([configFile(fileId: '27d6ad7c-09ef-458b-9737-b65bd2387547', variable: 'MAVEN_SETTINGS_XML')]) {
+                                sh "mvn verify -s $MAVEN_SETTINGS_XML"
+                            }
+                        }
+                    }
+                }
+                stage('build test container'){
+                    steps {
+                        script{
+                            fail_job="build test container"
+                            sh "docker build -t e2etestb src/test/. "
+                            sh "docker rm -f toxic"
+                        }
+                    }
+                }
+            }
+        }
+        stage('run test env'){
+            when {
+                anyOf {
+                    branch "master"
+                    branch "feature/*"
+                }
+            }
+            steps{
+                script{
+                    fail_job="run test env"
+                }  
+                sh "docker run -p 2137:8080 -d --name toxic 644435390668.dkr.ecr.eu-west-2.amazonaws.com/maciejgroszykecr:1.0-SNAPSHOT"
+                sh "sleep 5"
+            }
+        }
+        stage('e2e tests'){
+            when {
+                anyOf {
+                    branch "master"
+                    branch "feature/*"
+                }
+            } 
+            parallel{
+                stage('e2e-0'){
+                    steps{
+                        script{
+                            fail_job="e2e-0 tests"
+                            sh "docker rm -f e2etestb0"
+                            sh "docker run --name e2etestb0 e2etestb 35.176.222.34:2137 e2e_0"
+                        }
+                    }
+                }
+                stage('e2e-1'){
+                    steps{
+                        script{
+                            fail_job="e2e-1 tests"
+                            sh "docker rm -f e2etestb1" 
+                            sh "docker run --name e2etestb1 e2etestb 35.176.222.34:2137 e2e_1"
+                        }
+                    }
+                } 
+                stage('e2e-2'){
+                    steps{
+                        script{
+                            fail_job="e2e-2 tests"
+                            sh "docker rm -f e2etestb2" 
+                            sh "docker run --name e2etestb2 e2etestb 35.176.222.34:2137 e2e_2"
+                        }
+                    }
+                }  
+                stage('e2e-3'){
+                    steps{
+                        script{
+                            fail_job="e2e-3 tests"
+                            sh "docker rm -f e2etestb3" 
+                            sh "docker run --name e2etestb3 e2etestb 35.176.222.34:2137 e2e_3"
+                        }
+                    }
+                }
+            }
+        }
+        stage('deploy on ecr'){
+            when {
+                branch "master"
+            }
+            steps {
+                script{
+                    fail_job="deploy"
+                    sh "aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 644435390668.dkr.ecr.eu-west-2.amazonaws.com"
+                    configFileProvider([configFile(fileId: '27d6ad7c-09ef-458b-9737-b65bd2387547', variable: 'MAVEN_SETTINGS_XML')]) {
+                        sh "mvn deploy -s $MAVEN_SETTINGS_XML"
+                    }
+                }
+            }
+        }
+        stage('Deploy on ec2 - parallel'){
+            when { 
+                branch "master"
+            } 
+            parallel{
+                stage("Deploy to ec2 - 1"){
+                    steps{
+                        script{
+                            fail_job="Deploy on ec2 - 1"
+                        } 
+                        sh 'aws elbv2 deregister-targets \
+                        --target-group-arn arn:aws:elasticloadbalancing:eu-west-2:644435390668:targetgroup/mg-target-group/ee16f4db9789cc28 \
+                        --targets Id=i-017984d380a4a0448,Port=8080'
+                        sh 'ssh -i /home/jenkins/ssh/londonmaciejgroszyk.pem ubuntu@ec2-18-130-178-119.eu-west-2.compute.amazonaws.com "docker rm -f toxictypo"'
+                        sh 'ssh -i /home/jenkins/ssh/londonmaciejgroszyk.pem ubuntu@ec2-18-130-178-119.eu-west-2.compute.amazonaws.com "docker system prune -af"'
+                        sh 'ssh -i /home/jenkins/ssh/londonmaciejgroszyk.pem ubuntu@ec2-18-130-178-119.eu-west-2.compute.amazonaws.com "aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 644435390668.dkr.ecr.eu-west-2.amazonaws.com"'
+                        sh "sleep 5"
+                        sh 'ssh -i /home/jenkins/ssh/londonmaciejgroszyk.pem ubuntu@ec2-18-130-178-119.eu-west-2.compute.amazonaws.com "docker pull 644435390668.dkr.ecr.eu-west-2.amazonaws.com/maciejgroszykecr:1.0-SNAPSHOT"'
+                        sh 'ssh -i /home/jenkins/ssh/londonmaciejgroszyk.pem ubuntu@ec2-18-130-178-119.eu-west-2.compute.amazonaws.com "docker run -dp 8080:8080 --name toxictypo 644435390668.dkr.ecr.eu-west-2.amazonaws.com/maciejgroszykecr:1.0-SNAPSHOT"'
+                        sh 'aws elbv2 register-targets \
+                        --target-group-arn arn:aws:elasticloadbalancing:eu-west-2:644435390668:targetgroup/mg-target-group/ee16f4db9789cc28 \
+                        --targets Id=i-017984d380a4a0448,Port=8080'
+                    }
+                }
+                stage("Deploy to ec2 - 2"){
+                    steps{
+                        script{
+                            fail_job="Deploy on ec2 - 2"
+                        } 
+                        sh 'aws elbv2 deregister-targets \
+                        --target-group-arn arn:aws:elasticloadbalancing:eu-west-2:644435390668:targetgroup/mg-target-group/ee16f4db9789cc28 \
+                        --targets Id=i-02d8257e60907573a,Port=8080'
+                        sh 'ssh -i /home/jenkins/ssh/londonmaciejgroszyk.pem ubuntu@ec2-18-134-198-62.eu-west-2.compute.amazonaws.com "docker rm -f toxictypo"'
+                        sh 'ssh -i /home/jenkins/ssh/londonmaciejgroszyk.pem ubuntu@ec2-18-134-198-62.eu-west-2.compute.amazonaws.com "docker system prune -af"'
+                        sh "sleep 5"
+                        sh 'ssh -i /home/jenkins/ssh/londonmaciejgroszyk.pem ubuntu@ec2-18-134-198-62.eu-west-2.compute.amazonaws.com "aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 644435390668.dkr.ecr.eu-west-2.amazonaws.com"'
+                        sh 'ssh -i /home/jenkins/ssh/londonmaciejgroszyk.pem ubuntu@ec2-18-134-198-62.eu-west-2.compute.amazonaws.com "docker pull 644435390668.dkr.ecr.eu-west-2.amazonaws.com/maciejgroszykecr:1.0-SNAPSHOT"'
+                        sh 'ssh -i /home/jenkins/ssh/londonmaciejgroszyk.pem ubuntu@ec2-18-134-198-62.eu-west-2.compute.amazonaws.com "docker run -dp 8080:8080 --name toxictypo 644435390668.dkr.ecr.eu-west-2.amazonaws.com/maciejgroszykecr:1.0-SNAPSHOT"'
+                        sh 'aws elbv2 register-targets \
+                        --target-group-arn arn:aws:elasticloadbalancing:eu-west-2:644435390668:targetgroup/mg-target-group/ee16f4db9789cc28 \
+                        --targets Id=i-02d8257e60907573a,Port=8080'
+                    }
+                }
+            }
+            
+        }
+        
+    }
+    post {  
+        failure {  
+            updateGitlabCommitStatus name: "${fail_job}", state: 'failed'
+            emailext recipientProviders: [culprits()],
+                    subject: 'Build failure', body: "OMG, you broke the build here: ${fail_job}!!!!",
+                    attachLog: true, compressLog: true
+        } 
+        success {
+            emailext recipientProviders: [culprits()],
+            subject: 'Build success gratz!', body: 'OMG, you did it!',
+            attachLog: true, compressLog: true
+        } 
+    }  
+
+}

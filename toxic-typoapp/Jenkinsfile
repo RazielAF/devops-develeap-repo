@@ -1,0 +1,85 @@
+pipeline{
+    agent any
+    tools { 
+        maven 'Maven3.6.2' 
+        jdk 'jdk8' 
+    }
+    environment {
+        fail_job="Checkout"
+    }
+
+    stages {
+        stage('checkout') {
+            steps {
+                deleteDir() 
+                checkout scm
+                script{
+                    echo "CHECKOUT STAGE"
+                }
+            }
+        }
+        stage('build & test'){
+            when {
+                anyOf {
+                    branch "master"
+                    branch "feature/*"
+                }
+            }
+            steps {
+                script{
+                    fail_job="build & test"
+                    configFileProvider([configFile(fileId: '27d6ad7c-09ef-458b-9737-b65bd2387547', variable: 'MAVEN_SETTINGS_XML')]) {
+                        sh "mvn verify -s $MAVEN_SETTINGS_XML"
+                    }
+                }
+            }
+        }
+        stage('e2e tests'){
+            when {
+                anyOf {
+                    branch "master"
+                    branch "feature/*"
+                }
+            }
+            steps {
+                script{
+                    fail_job="e2e tests"
+                    sh "docker build -t e2etest src/test/. "
+                    sleep 5
+                    sh "docker run --name e2etestcontainer e2etest"
+                    sh "docker rm -f e2etestcontainer"
+
+                }
+            }
+        }
+        stage('deploy'){
+            when {
+                branch "master"
+            }
+            steps {
+                script{
+                    fail_job="deploy"
+                    sh "aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 644435390668.dkr.ecr.eu-west-2.amazonaws.com"
+                    configFileProvider([configFile(fileId: '27d6ad7c-09ef-458b-9737-b65bd2387547', variable: 'MAVEN_SETTINGS_XML')]) {
+                        sh "mvn deploy -s $MAVEN_SETTINGS_XML"
+                    }
+                }
+            }
+        }
+    }
+    post {  
+        failure {  
+            updateGitlabCommitStatus name: "${fail_job}", state: 'failed'
+            emailext recipientProviders: [culprits()],
+                    subject: 'Build failure', body: "OMG, you broke the build here: ${fail_job}!!!!",
+                    attachLog: true, compressLog: true
+        } 
+        success {
+            emailext recipientProviders: [culprits()],
+            subject: 'Build success gratz!', body: 'OMG, you did it!',
+            attachLog: true, compressLog: true
+        } 
+    }  
+
+}
+

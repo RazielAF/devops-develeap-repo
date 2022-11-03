@@ -1,0 +1,24 @@
+pipeline{
+    agent any
+    tools { 
+        maven 'Maven3.6.2' 
+        jdk 'jdk8' 
+    }
+    stages {
+        stage('checkout') {
+            steps {
+                deleteDir()
+                checkout scm
+            }
+        }
+        stage('Deploy') {
+            steps {
+                sh "mvn versions:set -DnewVersion=3.5"
+                configFileProvider([configFile(fileId: '27d6ad7c-09ef-458b-9737-b65bd2387547', variable: 'MAVEN_SETTINGS_XML')]) {
+                    sh "mvn deploy -s $MAVEN_SETTINGS_XML"
+                }
+
+            }
+        }      
+    }
+}

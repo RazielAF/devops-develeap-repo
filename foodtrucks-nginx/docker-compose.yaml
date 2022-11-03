@@ -1,0 +1,40 @@
+version: '3.7'
+services:
+  app:
+    image: foodtruck
+    container_name: foodtruck
+    ports:
+     - 5000:5000
+    networks:
+     - front
+     - app_net
+    depends_on:
+     - es
+  es:
+    image: elasticsearch:6.8.23
+    container_name: es
+    ports:
+     - 9200:9200
+    networks:
+     - app_net
+  nginx:
+    image: nginx
+    volumes:
+      - ./conf:/etc/nginx
+      - ./flask-app/templates/index.html:/usr/share/nginx/html/index.html
+      - ./flask-app/static:/usr/share/nginx/html/static
+      - ./mime.types:/etc/nginx/mime.types
+    ports:
+      - "8081:80"
+    depends_on:
+      - app
+
+
+    networks:
+      - front
+
+networks:
+  front:
+    name: front
+  app_net:
+    name: app_net

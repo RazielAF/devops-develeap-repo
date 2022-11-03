@@ -1,0 +1,7 @@
+('John doe,Jane McDun') > [('John doe', 'john.doe@company.com'), ('Jane McDun', 'jane.mcdun@company.com')]
+('John doe,John doe') > [('John doe', 'john.doe@company.com'), ('John doe', 'john.doe2@company.com')]
+('Joe mama-tata,Joe ma-ma-tata baba') > [('Joe mama-tata', 'joe.mamatata@company.com'), ('Joe ma-ma-tata baba', 'joe.mamatata.baba@company.com')]
+('test testa testb testc testd') > [('test testa testb testc testd', 'test.testa.testb.testc.testd@company.com')]
+('  names    toomany   space ') > [('names     toomany   space', 'names.space@company.com')]
+('na.me las.tname') > [('na.me las.tname', 'name.lastname@company.com')]
+('a a a a a') > [('a a a a a', 'a.a.a.a.a@company.com')]

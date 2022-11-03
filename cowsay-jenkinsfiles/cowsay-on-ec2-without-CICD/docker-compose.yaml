@@ -1,0 +1,45 @@
+version: '3.7'
+
+services:
+  jenkins:
+    build:
+      context: .
+      args:
+        HOST_DOCKER_GID: 121
+    container_name: jenkins
+    ports:
+     - 8080:8080
+     - 50000:50000
+    volumes:
+      - jenkins:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: always
+    networks:
+     - mynet
+  gitlab:
+    image: gitlab/gitlab-ce:latest
+    container_name: gitlab
+    restart: always
+    ports:
+      - 80:80
+      - 443:443
+      - 22:22
+    volumes:
+     - config:/etc/gitlab
+     - logs:/var/log/gitlab
+     - data:/var/opt/gitlab
+    networks:
+     - mynet
+volumes:
+  jenkins:
+    name: jenkins
+  config:
+    name: gitlab
+  logs:
+    name: logs
+  data:
+    name: data
+
+networks:
+  mynet:
+    name: mynet

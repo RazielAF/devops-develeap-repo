@@ -1,0 +1,3 @@
+("hellocat", "apple,bat,cat,goodbye,hello,yellow,why") > ["hello","cat"]
+("hello hello", "hello") > ["hello", "hello"]
+("aa", "a,b,c,d") > ["a", "a"]

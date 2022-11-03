@@ -1,0 +1,86 @@
+pipeline{
+    agent any
+
+    tools { 
+        maven 'Maven3.6.2' 
+        jdk 'jdk8' 
+    }
+    stages {
+        stage('checkout') {
+            steps {
+                deleteDir() 
+                checkout scm
+                script{
+                    withCredentials([string(credentialsId: 'token', variable: 'TOKEN')]) { 
+                        sh "git fetch http://jenkins:$TOKEN@35.176.222.34/jenkins/suggest_lib --tags"
+                    } 
+                    if (env.BRANCH_NAME.contains('release')){ 
+                        VERSION = sh(returnStdout: true, script: "echo '${env.BRANCH_NAME}'| cut -d '/' -f2").trim()  
+                        TAG = sh(returnStdout: true, script: "git tag --sort version:refname | tail -1").trim()
+                        if ("${TAG}" == ""){
+                            NEW_TAG = "${VERSION}.0"
+                        } else {
+                            echo "${TAG}"
+                            SUFFIX = sh(returnStdout: true, script: "echo '${TAG}' | cut -d '.' -f3 | cut -d ' ' -f1").trim()
+                            echo "${SUFFIX}"
+                            SUFFIX = "${SUFFIX}" as int
+                            echo "${SUFFIX}"
+
+                            ADDED =  SUFFIX + 1
+                            echo "${ADDED}"
+
+                            NEW_TAG = "${VERSION}.${ADDED}"
+                        }
+                    }
+                    echo "@@@@@@@ ${env.BRANCH_NAME} @@@@@@"
+                    echo " @@@@@@ ${VERSION} @@@@@ "
+                    echo " @@@@@@ ${NEW_TAG} @@@@@ "
+                    CURRENT_BRANCH = sh(returnStdout: true, script: 'git log --all --decorate | head -1 | cut -d "(" -f2 | cut -d ")" -f1 ').trim()
+                }
+            }
+        }
+        stage('buld and test'){
+            steps {
+                sh 'mvn verify'
+            }
+        }
+        stage('publish'){
+            when {
+                anyOf {
+                    branch "main"
+                    branch "release/*"
+                }
+            }
+            steps {
+                script {
+                    if ("${env.BRANCH_NAME}".contains('release/')){
+                        sh "mvn versions:set -DnewVersion='${NEW_TAG}'"
+                    }
+                    else if ("${env.BRANCH_NAME}".contains('master')) {
+                        sh "mvn versions:set -DnewVersion='SNAPSHOT'"
+
+                    }                
+                    configFileProvider([configFile(fileId: '27d6ad7c-09ef-458b-9737-b65bd2387547', variable: 'MAVEN_SETTINGS_XML')]) {
+                        sh "mvn deploy -s $MAVEN_SETTINGS_XML"
+                    }
+                }
+            }
+        }
+        stage('tag'){
+            when {
+                branch "release/*"
+            }
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'token', variable: 'TOKEN')]) { 
+                        sh "git clean -f -x"
+                        sh "git tag -a ${NEW_TAG} -m 'version ${NEW_TAG}'"
+                        sh "git push http://jenkins:$TOKEN@35.176.222.34/jenkins/suggest_lib --tag"
+                    } 
+                }
+            }
+        }
+    }
+}
+
+

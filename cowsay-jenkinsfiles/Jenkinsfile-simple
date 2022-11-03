@@ -1,0 +1,83 @@
+pipeline {
+    options {
+        timestamps()
+    }
+    agent any
+    environment {
+        fail_job="Checkout"
+    }
+    stages {
+        stage("Checkout") {
+            steps {
+                deleteDir()
+                checkout scm
+            }
+        }
+        stage('Build') {
+            steps {
+                script{
+                    fail_job="build"
+                }
+                updateGitlabCommitStatus name: 'build', state: 'pending'
+                echo 'Building..'
+                sh "docker build -t cowsay ."
+                updateGitlabCommitStatus name: 'build', state: 'success'
+            }
+        }
+        stage('Test'){
+            steps {
+                script{
+                    fail_job="test"
+                }
+                updateGitlabCommitStatus name: 'test', state: 'pending'
+                sh "docker rm -f cowsay_app"
+                sh "docker run -dp 2137:8080 --name cowsay_app cowsay"
+                sleep 5
+                sh "curl -i http://35.176.56.212:2137 | grep 200"
+                updateGitlabCommitStatus name: 'test', state: 'success'                        
+            }
+        }
+        stage('Deploy on ecr'){
+            steps {
+                script{
+                    fail_job="deploy_ecr"
+                }
+                updateGitlabCommitStatus name: 'deploy_ecr', state: 'pending'
+                sh "aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 644435390668.dkr.ecr.eu-west-2.amazonaws.com"
+                sh "docker tag cowsay 644435390668.dkr.ecr.eu-west-2.amazonaws.com/maciejgroszyklavagna:latest"
+                sh "docker push 644435390668.dkr.ecr.eu-west-2.amazonaws.com/maciejgroszyklavagna:latest"
+                echo 'Deploying'
+                updateGitlabCommitStatus name: 'deploy_ecr', state: 'success'
+            }
+        }
+        stage('Deploy on ec2'){
+            steps {
+                script{
+                    fail_job="deploy_ec2"
+                }
+                updateGitlabCommitStatus name: 'deploy_ec2', state: 'pending'
+                sh 'ssh -i /home/jenkins/ssh/londonmaciejgroszyk.pem ubuntu@ec2-18-132-119-238.eu-west-2.compute.amazonaws.com "docker rm -f cowsay"'
+                sh 'ssh -i /home/jenkins/ssh/londonmaciejgroszyk.pem ubuntu@ec2-18-132-119-238.eu-west-2.compute.amazonaws.com "docker system prune -af"'
+                sh "aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 644435390668.dkr.ecr.eu-west-2.amazonaws.com"
+                sh 'ssh -i /home/jenkins/ssh/londonmaciejgroszyk.pem ubuntu@ec2-18-132-119-238.eu-west-2.compute.amazonaws.com "docker pull 644435390668.dkr.ecr.eu-west-2.amazonaws.com/maciejgroszyklavagna:latest"'
+                sh 'ssh -i /home/jenkins/ssh/londonmaciejgroszyk.pem ubuntu@ec2-18-132-119-238.eu-west-2.compute.amazonaws.com "docker run -dp 2137:8080 --name cowsay 644435390668.dkr.ecr.eu-west-2.amazonaws.com/maciejgroszyklavagna:latest"'
+                updateGitlabCommitStatus name: 'deploy_ec2', state: 'success'
+                
+            }
+        }
+    }
+    
+    post {  
+         failure {  
+             updateGitlabCommitStatus name: "${fail_job}", state: 'failed'
+             emailext recipientProviders: [culprits()],
+                        subject: 'Build failure', body: 'OMG, you broke the build!',
+                        attachLog: true, compressLog: true
+         } 
+         success {
+                emailext recipientProviders: [culprits()],
+                subject: 'Build success gratz!', body: 'OMG, you did it!',
+                attachLog: true, compressLog: true
+         } 
+     }  
+}
