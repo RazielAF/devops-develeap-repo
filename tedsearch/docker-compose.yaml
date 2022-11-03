@@ -1,0 +1,27 @@
+version: "3.7"
+services:
+  tedsearch:
+    image: 644435390668.dkr.ecr.eu-west-2.amazonaws.com/maciejgroszyk-tedsearch:latest
+    container_name: "tedsearch"
+    # ports:
+    # - 2137:9191
+    networks:
+     - mynet
+  nginx:
+    build:
+      context: .
+      dockerfile: ./conf/Dockerfile
+    container_name: nginx
+    restart: always
+    ports:
+      - 4200:80
+    networks:
+     - mynet
+    depends_on:
+     - tedsearch
+volumes:
+  db:
+    driver: local
+networks:
+  mynet:
+    name: mynet

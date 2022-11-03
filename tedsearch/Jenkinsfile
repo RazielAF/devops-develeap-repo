@@ -1,0 +1,134 @@
+pipeline{
+    agent any
+    tools { 
+        maven 'Maven3.6.2' 
+        jdk 'jdk8' 
+    }
+    stages {
+        stage('checkout') {
+            steps {
+                deleteDir()
+                checkout scm
+                script{
+                    LOG = sh(returnStdout: true, script: 'git log --graph --oneline --decorate | head -1').trim()
+                }
+            }
+        }
+        stage('build & unit tests'){
+            steps{
+                sh "mvn verify"
+            }
+        }
+        stage('run test env'){
+            steps{
+                sh 'docker-compose up -d --build'
+            }
+        }
+        stage('e2e tests'){
+            steps{
+                sh 'bash e2e-test.sh 35.176.222.34 4200'
+            } 
+        }
+        stage('deploy on ecr'){
+            when{
+                anyOf{
+                    expression { "${LOG}".contains('#test')}
+                }
+            }
+            steps {
+                script{
+                    sh "aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 644435390668.dkr.ecr.eu-west-2.amazonaws.com"
+                    configFileProvider([configFile(fileId: '27d6ad7c-09ef-458b-9737-b65bd2387547', variable: 'MAVEN_SETTINGS_XML')]) {
+                        sh "mvn deploy -s $MAVEN_SETTINGS_XML"
+                    }
+                    sh "docker commit nginx 644435390668.dkr.ecr.eu-west-2.amazonaws.com/maciejgroszyk-nginx:latest"
+                    sh "docker push 644435390668.dkr.ecr.eu-west-2.amazonaws.com/maciejgroszyk-nginx:latest"
+                }
+            }
+        }
+        stage('deploy test env'){
+            when{
+                anyOf{
+                    expression { "${LOG}".contains('#test')}
+                }
+            }
+            steps{
+                script{ 
+                    sh "terraform -chdir=terraform init"
+                    try{ 
+                        sh "terraform -chdir=terraform workspace new test" 
+                    }catch (Exception e) {
+                        echo "workspace exist"
+                    }
+                    sh "terraform -chdir=terraform workspace select test"
+                    sh "terraform -chdir=terraform plan -var-file=dev.tfvars"
+                    try{ 
+                        sh "terraform -chdir=terraform destroy -auto-approve"
+                    }catch (Exception e) {
+                        echo "nothing to destory"
+                    }
+                    sh "terraform -chdir=terraform apply -auto-approve -var-file=dev.tfvars" 
+                    test_ip = sh(returnStdout: true, script: "terraform -chdir=terraform output | cut -d ' ' -f3 | tail -c +2 | head -c -2").trim()
+                }
+            }
+        }
+        stage('e2e test on test env'){
+            when{
+                anyOf{
+                    expression { "${LOG}".contains('#test')}
+                }
+            }
+            steps{
+                script{
+                    timeout(time: 4, unit: 'MINUTES') {
+                        for(int i = 0;i<6;i++){
+                            try {
+                                sh "curl -f '${test_ip}':80"
+                            }
+                            catch (Exception e) {
+                                sh 'sleep 36' 
+                            }
+                        }
+                        sh "sleep 10 "
+                        sh "bash e2e-test.sh ${test_ip} 80"
+                    }
+                }
+            }
+        }
+        stage('deploy prod env'){
+            steps{
+                script{ 
+                    sh "terraform -chdir=terraform init"
+                    try{ 
+                        sh "terraform -chdir=terraform workspace new prod"
+                    }
+                    catch (Exception e) {
+                        echo "workspace exist"
+                    }
+                    sh "terraform -chdir=terraform workspace select prod"
+                    sh "terraform -chdir=terraform plan -var-file=prod.tfvars"
+                    try{
+                        sh "terraform -chdir=terraform destroy -auto-approve"
+                    }catch (Exception e) {
+                        echo "nothing to destory"
+                    }                    
+                    sh "terraform -chdir=terraform apply -auto-approve -var-file=prod.tfvars" 
+                    prod_ip = sh(returnStdout: true, script: "terraform -chdir=terraform output | cut -d ' ' -f3 | tail -c +2 | head -c -2").trim()
+                    timeout(time: 4, unit: 'MINUTES') {
+                        for(int i = 0;i<6;i++){
+                            try {
+                                sh "curl -f '${prod_ip}':80"
+                            }
+                            catch (Exception e) {
+                                sh 'sleep 36' 
+                            }
+                        }
+                        sh "sleep 10 "
+                        sh "bash e2e-test.sh ${prod_ip} 80"
+                    }
+                }
+            }
+        }
+
+    }
+}
