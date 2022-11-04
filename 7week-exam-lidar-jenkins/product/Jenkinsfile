@@ -1,0 +1,108 @@
+pipeline{
+    agent any
+
+    tools { 
+        maven 'Maven3.6.2' 
+        jdk 'jdk8' 
+    }
+    stages {
+        stage('checkout') {
+            steps {
+                deleteDir() 
+                checkout scm
+                script{
+                    withCredentials([string(credentialsId: 'token', variable: 'TOKEN')]) { 
+                        sh "git fetch http://jenkins:$TOKEN@35.176.222.34/maciejgroszyk/product --tags"
+                    }
+                }
+            }
+        }
+        stage('calculate tag'){
+            when {
+                branch "release/*"
+            }
+            steps {
+                script {
+                    TAG=env.GIT_BRANCH.split('\\/') 
+                    VERSION= TAG[1]
+                    TAG = sh(returnStdout: true, script: "git tag | grep ${VERSION} | tail -1 | cut -d '/' -f2").trim()
+                    if ("${TAG}" == ""){
+                        NEW_TAG = "${VERSION}.0"
+                    } else {
+                        SUFFIX = sh(returnStdout: true, script: "echo '${TAG}' | cut -d '.' -f3 | cut -d ' ' -f1").trim()
+                        SUFFIX = "${SUFFIX}" as int
+                        ADDED =  SUFFIX + 1
+                        NEW_TAG = "${VERSION}.${ADDED}"
+                    }
+                    withCredentials([usernamePassword(credentialsId: 'jfrog', passwordVariable: 'pass', usernameVariable: 'user')]) {
+                        ANALYTICS = sh(returnStdout: true, script: 'curl -s -u $user:$pass http://35.176.222.34:8082/artifactory/libs-release-local/com/lidar/analytics/').trim()
+                        LATEST_ANALYTICS = sh(returnStdout: true, script: "echo '${ANALYTICS}'| grep -F ${VERSION} | cut -d '/' -f1 | cut -d '.' -f3 |sort -n | tail -1").trim()
+                        TELEMETRY = sh(returnStdout: true, script: 'curl -s -u $user:$pass http://35.176.222.34:8082/artifactory/libs-release-local/com/lidar/telemetry/').trim()
+                        LATEST_TELEMETRY = sh(returnStdout: true, script: "echo '${TELEMETRY}' | grep -F ${VERSION} | cut -d '/' -f1 | cut -d '.' -f3 |sort -n | tail -1").trim()
+                    }
+                    echo "LATEST ANALYTICS: ${LATEST_ANALYTICS}"
+                    echo "LATEST TELEMETRY: ${LATEST_TELEMETRY}"
+                    sh "mvn versions:set-property -DnewVersion='${VERSION}.${LATEST_TELEMETRY}' -Dproperty=telemetry.version"
+                    sh "mvn versions:set-property -DnewVersion='${VERSION}.${LATEST_ANALYTICS}' -Dproperty=analytics.version"
+                    sh "mvn versions:set -DnewVersion=${NEW_TAG}"
+                    sh "mvn dependency:list"
+                    sh "mvn versions:commit"
+                }
+            }
+        }
+        stage('build & unit tests'){
+            when {
+                anyOf {
+                    branch "release/*"
+                }
+            }
+            steps {
+                configFileProvider([configFile(fileId: '27d6ad7c-09ef-458b-9737-b65bd2387547', variable: 'MAVEN_SETTINGS_XML')]) {
+                    sh "mvn -s $MAVEN_SETTINGS_XML clean package"
+                }
+            }
+        }
+        stage('e2e tests'){
+            when {
+                anyOf {
+                    branch "release/*"
+                } 
+            }
+            steps {
+                script{
+                    withCredentials([usernamePassword(credentialsId: 'jfrog', passwordVariable: 'pass', usernameVariable: 'user')]) {
+                        sh 'wget -r -np -nH --cut-dirs 4 --user=$user --password=$pass http://35.176.222.34:8082/artifactory/libs-snapshot-local/com/lidar/simulator/99-SNAPSHOT/'
+                    }
+                    NEWEST_SIMULATOR_SNAPSHOT= sh(returnStdout: true, script: 'ls -t simulator/99-SNAPSHOT/simulator-99*.jar | head -1').trim()
+                    sh "cp ${NEWEST_SIMULATOR_SNAPSHOT} simulator.jar"
+                    sh "unzip ./target/*.zip"
+                    sh "java -cp simulator.jar:telemetry-${VERSION}.0.jar:analytics-${VERSION}.0.jar com.lidar.simulation.Simulator"
+                }
+            }
+        }
+        stage('publish'){
+            when {
+                anyOf{
+                    branch "release/*"                
+                }
+            }
+            steps {
+                configFileProvider([configFile(fileId: '27d6ad7c-09ef-458b-9737-b65bd2387547', variable: 'MAVEN_SETTINGS_XML')]) {
+                    sh "mvn -s $MAVEN_SETTINGS_XML clean deploy -DskipTests"
+                }
+            }
+        }
+        stage('tag release'){
+            when {
+                branch "release/*"
+            }
+            steps{
+                sh "git clean -f"
+                sh "git tag ${NEW_TAG}"
+                withCredentials([string(credentialsId: 'token', variable: 'TOKEN')]) {
+                    sh "git push http://jenkins:$TOKEN@35.176.222.34/maciejgroszyk/product --tags"
+                }
+            }
+        }
+    }
+}

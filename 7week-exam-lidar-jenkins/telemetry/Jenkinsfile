@@ -1,0 +1,111 @@
+pipeline{
+    agent any
+
+    tools { 
+        maven 'Maven3.6.2' 
+        jdk 'jdk8' 
+    }
+    stages {
+        stage('checkout') {
+            steps {
+                deleteDir() 
+                checkout scm
+                script{
+                    withCredentials([string(credentialsId: 'token', variable: 'TOKEN')]) { 
+                        sh "git fetch http://jenkins:$TOKEN@35.176.222.34/maciejgroszyk/telemetry --tags"
+                    }
+                    env.GIT_COMMIT_MSG = sh (returnStdout: true, script: 'git log -1 --pretty=%B').trim()
+                }
+            }
+        }
+        stage('calculate tag'){
+            when {
+                branch "release/*"
+            }
+            steps {
+                script {
+                    TAG=env.GIT_BRANCH.split('\\/') 
+                    VERSION= TAG[1]
+                    TAG = sh(returnStdout: true, script: "git tag --sort version:refname \"${VERSION}.*\" | tail -1").trim()    
+                    if ("${TAG}" == ""){
+                        NEW_TAG = "${VERSION}.0"
+                    } else {
+                        SUFFIX = sh(returnStdout: true, script: "echo '${TAG}' | cut -d '.' -f3 | cut -d ' ' -f1").trim()
+                        SUFFIX = "${SUFFIX}" as int
+                        ADDED =  SUFFIX + 1
+                        NEW_TAG = "${VERSION}.${ADDED}"
+                    }
+                    echo "${NEW_TAG}"
+                    sh "mvn versions:set -DnewVersion=${NEW_TAG}"
+                    sh "mvn versions:commit"
+                }
+            }
+        }
+        stage('build & unit tests'){
+            when {
+                anyOf {
+                    branch "master"
+                    branch "feature/*"
+                    branch "release/*"
+                }
+            }
+            steps {
+                configFileProvider([configFile(fileId: '27d6ad7c-09ef-458b-9737-b65bd2387547', variable: 'MAVEN_SETTINGS_XML')]) {
+                    sh "mvn -s $MAVEN_SETTINGS_XML clean package"
+                }
+            }
+        }
+
+        stage('e2e tests'){
+            when {
+                anyOf {
+                    branch "master"
+                    allOf{
+                        branch "feature/*"
+                        expression { return env.GIT_COMMIT_MSG.contains('e2e') }
+                    }
+                } 
+            }
+            steps {
+                script{
+                    withCredentials([usernamePassword(credentialsId: 'jfrog', passwordVariable: 'pass', usernameVariable: 'user')]) {
+                        sh 'wget -r -np -nH --cut-dirs 4 --user=$user --password=$pass http://35.176.222.34:8082/artifactory/libs-snapshot-local/com/lidar/analytics/99-SNAPSHOT/'
+                        sh 'wget -r -np -nH --cut-dirs 4 --user=$user --password=$pass http://35.176.222.34:8082/artifactory/libs-snapshot-local/com/lidar/simulator/99-SNAPSHOT/'
+                    }
+                    NEWEST_SIMULATOR_SNAPSHOT= sh(returnStdout: true, script: 'ls -t simulator/99-SNAPSHOT/simulator-99*.jar | head -1').trim()
+                    NEWEST_ANALYTIC_SNAPSHOT= sh(returnStdout: true, script: 'ls -t analytics/99-SNAPSHOT/analytics-99*.jar | head -1').trim()
+
+                    sh "cp ${NEWEST_ANALYTIC_SNAPSHOT} analytics.jar"
+                    sh "cp ${NEWEST_SIMULATOR_SNAPSHOT} simulator.jar"
+                    sh "cp target/telemetry-*.jar telemetry.jar"
+                    sh "java -cp simulator.jar:telemetry.jar:analytics.jar com.lidar.simulation.Simulator"
+                }
+            }
+        }
+        stage('publish'){
+            when {
+                anyOf{
+                    branch "master"
+                    branch "release/*"                
+                }
+            }
+            steps {
+                configFileProvider([configFile(fileId: '27d6ad7c-09ef-458b-9737-b65bd2387547', variable: 'MAVEN_SETTINGS_XML')]) {
+                    sh "mvn -s $MAVEN_SETTINGS_XML clean deploy -DskipTests"
+                }
+            }
+        }
+        stage('tag release'){
+            when {
+                branch "release/*"
+            }
+            steps{
+                sh "git clean -f"
+                sh "git tag ${NEW_TAG}"
+                withCredentials([string(credentialsId: 'token', variable: 'TOKEN')]) {
+                    sh "git push http://jenkins:$TOKEN@35.176.222.34/maciejgroszyk/telemetry --tags"
+                }
+            }
+        }
+    }
+}
