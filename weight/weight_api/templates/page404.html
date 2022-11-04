@@ -1,0 +1,17 @@
+{% extends "index.html" %}
+{% block content %}
+<body>
+  <ul class="topnav">
+    <li><a href="/">Home</a></li>
+    <li><a href="/getweightparams">Weight</a></li>
+    <li><a href="/unknown">Unknown</a></li>
+    <li><a href="/session">Sessions</a></li>
+    <li><a href="/batch_weight">Batch-weight</a></li>
+    <li><a href="/items">items</a></li>
+    <li><a href="/health">Health</a></li>  
+  </ul>
+  <h1>ERROR: {{show}}</h1>
+  <h2>Oops! Looks like the page doesn't exist anymore</h2>
+  <a href="{{ url_for('post_session') }}"><p>Click Here</a> To go to the Search a session page</p>
+</body>
+{% endblock %}

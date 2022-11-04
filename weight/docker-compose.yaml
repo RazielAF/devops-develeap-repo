@@ -1,0 +1,28 @@
+version: "3.7"
+
+services:
+    app:
+        build: .
+        container_name: weight
+        ports:
+            - "8084:5000"
+        depends_on:
+            - "db"
+        networks:
+            - "weight_network"
+    db:
+        image: mysql:8.0.30
+        container_name: db
+        environment:
+            MYSQL_ROOT_PASSWORD: password
+            MYSQL_DATABASE: weight
+        volumes:
+            - ./db:/docker-entrypoint-initdb.d
+        ports:
+            - '8086:3306'
+        networks:
+            - "weight_network"
+
+networks:
+    weight_network:
+        name: weight_network

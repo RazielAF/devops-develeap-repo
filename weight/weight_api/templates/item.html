@@ -1,0 +1,30 @@
+{% extends "index.html" %}
+{% block content %}
+<body>
+    <ul class="topnav">
+        <li><a href="/">Home</a></li>
+        <li><a href="/getweightparams">Weight</a></li>
+        <li><a href="/unknown">Unknown</a></li>
+        <li><a href="/session">Sessions</a></li>
+        <li><a href="/batch_weight">Batch-weight</a></li>
+        <li><a class="active" href="/item">items</a></li>
+        <li><a href="/health">Health</a></li>  
+    </ul>
+    <form id="inform" action="/item/" style="max-width:500px;margin:auto" method="POST">
+        <h2>Provide data to get data for a container or a truck</h2>
+        <div class="input-container">
+            <i class="fa fa-user icon"></i>
+            <input class="input-field" name="from"  type="text" placeholder="From" value={{frm}}>
+        </div>
+        <div class="input-container">
+            <i class="fa fa-user icon"></i>
+            <input class="input-field" name="to"  type="text" placeholder="To" value={{to}}>
+        </div>
+        <div class="input-container">
+            <i class="fa fa-user icon"></i>
+            <input class="input-field" name="itemid"  type="text" placeholder="Select item id (containers or truck)">
+        </div>
+        <button id="sendBtn" name="get_json" type="submit" value="Submit" class="btn">Submit</button>
+    </form>
+</body>
+{% endblock %}

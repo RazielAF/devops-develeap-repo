@@ -1,0 +1,22 @@
+{% extends "index.html" %}
+{% block content %}
+<body>
+  <ul class="topnav">
+    <li><a href="/">Home</a></li>
+    <li><a href="/getweightparams">Weight</a></li>
+    <li><a href="/unknown">Unknown</a></li>
+    <li><a href="/session">Sessions</a></li>
+    <li><a class="active" href="/batch_weight">Batch-weight</a></li>
+    <li><a href="/item">items</a></li>
+    <li><a href="/health">Health</a></li>  
+</ul>
+    <form id="inform" action="/batch_weight" style="max-width:500px;margin:auto" method="post">   
+      <h2>Provide file to upload data</h2>
+      <div class="input-container">
+        <i class="fa fa-user icon"></i>
+        <input class="input-field" name="batch_file"  type="text" placeholder="file">
+      </div>
+      <button id="sendBtn" name="submit" type="submit" value="batch weight" class="btn">Submit</button>
+    </form>
+  </body>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "index.html" %}
+{% block content %}
+<body>
+    <ul class="topnav">
+        <li><a href="/">Home</a></li>
+        <li><a href="/getweightparams">Weight</a></li>
+        <li><a href="/unknown">Unknown</a></li>
+        <li><a class="active" href="/session">Sessions</a></li>
+        <li><a href="/batch_weight">Batch-weight</a></li>
+        <li><a href="/item">items</a></li>
+        <li><a href="/health">Health</a></li>  
+    </ul>
+    <form id="inform2" action="/session/" style="max-width:500px;margin:auto" method="POST">
+        <h2>Provide data for fetching a session</h2>
+        <div class="input-container">
+        <i class="fa fa-user icon"></i>
+        <input class="input-field" name="sesid"  type="text" placeholder="Session ID">
+        </div>
+        <button style="width: 49.5%; padding: 15px 20px;" id="sendBtn" name="get_json" type="submit" value="get json" class="btn">get json</button>
+        <button style="width: 49.5%; padding: 15px 20px;" id="sendBtn" name="show_table" type="submit" value="show table" class="btn">show table</button>
+    </form>
+</body>
+{% endblock %}

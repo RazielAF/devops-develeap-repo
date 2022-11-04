@@ -1,0 +1,40 @@
+{% extends "index.html" %}
+{% block content %}
+<body>
+    {% if err == "yes" %}
+        <h1>ERROR: {{show}}</h1>
+        <h2>Oops! Looks like the page doesn't exist anymore</h2>
+        <a href="{{ url_for('/') }}"><p>Click Here</a> To go to the Home page</p>
+    {% elif err == "no" %}
+        <style>
+            table {
+            border-collapse: collapse;
+            width: 20%;
+            }
+            
+            th, td {
+            text-align: left;
+            padding: 8px;
+            }
+            
+            tr:nth-child(odd) {
+            background-color: #D6EEEE;
+            }
+        </style>
+        <center>
+            <table border="1" cellspacing="0" cellpadding="5" width="200" align="center">
+              <tr>
+                <th>Serial no.</th>
+                <th >Container ID</th>
+              </tr>
+              {% for row in data %}
+                <tr>
+                    <td>{{data.index(row) + 1}}</td>
+                    <td>{{row}}</td>
+                </tr>
+              {% endfor %}
+            </table> 
+        </center>
+    {% endif %}
+</body>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends "index.html" %}
+{% block content %}
+<body>
+  <style>
+    table {
+      border-collapse: collapse;
+      width: 50%;
+    }
+    
+    th, td {
+      text-align: left;
+      padding: 8px;
+    }
+    
+    tr:nth-child(odd) {
+      background-color: #D6EEEE;
+    }
+  </style>
+  <ul class="topnav">
+    <li><a href="/">Home</a></li>
+    <li><a href="/getweightparams">Weight</a></li>
+    <li><a href="/unknown">Unknown</a></li>
+    <li><a class="active" href="/session">Sessions</a></li>
+    <li><a href="/batch_weight">Batch-weight</a></li>
+    <li><a href="/item">items</a></li>
+    <li><a href="/health">Health</a></li>  
+  </ul>
+  <center>
+    <table border="1" cellspacing="0" cellpadding="5" width="200" align="center">
+      <tr>
+        <th >id</th>
+        <th>direction</th>
+        <th>truck</th>
+        <th>bruto</th>
+        <th>truckTara</th>
+        <th>neto</th>
+      </tr>
+      {% for row in data %}
+          {% if row.2 == "in" or row.2 == "none" %}
+            <tr>
+              <td>{{row.9}}</td>
+              <td>{{row.2}}</td>
+              <td>{{row.3}}</td>
+              <td>{{row.5}}</td>
+              <td>-</td>
+              <td>-</td>
+            </tr>
+          {% endif %}
+          {% if row.2 == "out" %}
+            <tr>
+              <td>{{row.9}}</td>
+              <td>{{row.2}}</td>
+              <td>{{row.3}}</td>
+              <td>{{row.5}}</td>
+              <td>{{row.6}}</td>
+              <td>{{row.7}}</td>
+            </tr>
+          {% endif %}
+      {% endfor %}
+    </table> 
+  </center>
+</body>
+{% endblock %}

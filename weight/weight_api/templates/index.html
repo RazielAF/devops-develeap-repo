@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body {margin: 0;}
+
+ul.topnav {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #333;
+}
+
+ul.topnav li {float: left;}
+
+ul.topnav li a {
+  display: block;
+  color: white;
+  text-align: center;
+  padding: 14px 16px;
+  text-decoration: none;
+}
+
+ul.topnav li a:hover:not(.active) {background-color: #111;}
+
+ul.topnav li a.active {background-color: #04AA6D;}
+
+ul.topnav li.right {float: right;}
+
+@media screen and (max-width: 600px) {
+  ul.topnav li.right, 
+  ul.topnav li {float: none;}
+}
+
+body {font-family: Arial, Helvetica, sans-serif;}
+* {box-sizing: border-box;}
+
+.input-container {
+  display: -ms-flexbox; /* IE10 */
+  display: flex;
+  width: 100%;
+  margin-bottom: 15px;
+}
+
+.icon {
+  padding: 10px;
+  background: #04AA6D;
+  color: white;
+  min-width: 50px;
+  text-align: center;
+}
+
+.input-field {
+  width: 100%;
+  padding: 10px;
+  outline: none;
+}
+
+.input-field:focus {
+  border: 2px solid dodgerblue;
+}
+
+/* Set a style for the submit button */
+.btn {
+  background-color: #04AA6D;
+  color: white;
+  padding: 15px 20px;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  opacity: 0.9;
+}
+
+.btn:hover {
+  opacity: 1;
+}
+
+body {
+  background: #fff;
+}
+
+.title {
+  font-size: 2.5rem;
+  font-family: 'Lobster', cursive;
+}
+
+.wrapper {
+  animation: scroll 70s linear infinite;
+  background: url("https://images.unsplash.com/photo-1465146633011-14f8e0781093?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=3450&q=80"), #111111;
+  color: #eee;
+  height: 100vh;
+  min-width: 360px;
+  width: 100%;
+
+  
+}
+
+@keyframes scroll {
+   100%{
+    background-position:0px -3000px;
+  }
+}
+
+@media (prefers-reduced-motion) {
+  .wrapper {
+    animation: scroll 200s linear infinite;
+  }
+}
+
+</style>
+
+</head>
+<article class = "wrapper">
+{% block content %}
+
+<body>
+
+<ul class="topnav">
+  <li><a class="active" href="/">Home</a></li>
+  <li><a href="/getweightparams">Weight</a></li>
+  <li><a href="/unknown">Unknown</a></li>
+  <li><a href="/session">Sessions</a></li>
+  <li><a href="/batch_weight">Batch-weight</a></li>
+  <li><a href="/item">items</a></li>
+  <li><a href="/health">Health</a></li>
+</ul>
+
+
+<form id="inform" action="/" style="max-width:500px;margin:auto" method="post">
+  <h2>Put Weight</h2>
+  <div class="input-container">
+    <i class="fa fa-user icon"></i>
+    <input class="input-field" name="direction"  type="text" placeholder="Direction">
+  </div>
+
+  <div class="input-container">
+    <i class="fa fa-envelope icon"></i>
+    <input class="input-field" name="truck" type="text" placeholder="Truck license">
+  </div>
+  
+  <div class="input-container">
+    <i class="fa fa-key icon"></i>
+    <input class="input-field" name="containers_id" type="text" placeholder="Containers">
+  </div>
+  
+  <div class="input-container">
+    <i class="fa fa-user icon"></i>
+    <input class="input-field" name="truck_weight" type="text" placeholder="Truck weight">
+  </div>
+
+  <div class="input-container">
+    <i class="fa fa-envelope icon"></i>
+    <input class="input-field" name="unit" type="text" placeholder="Unit">
+  </div>
+  
+  <div class="input-container">
+    <i class="fa fa-key icon"></i>
+    <input class="input-field" name="force" type="text" placeholder="Force">
+  </div>
+  
+  <div class="input-container">
+    <i class="fa fa-key icon"></i>
+    <input class="input-field" name="produce" type="text" placeholder="Produce">
+  </div>
+
+  <button id="sendBtn" type="submit" value="submit" class="btn">Submit</button>
+</form>
+    
+  </body>
+  {% endblock %}
+  </article>
+</html>
